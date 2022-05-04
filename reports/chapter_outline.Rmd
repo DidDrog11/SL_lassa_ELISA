@@ -1,0 +1,57 @@
+---
+title: "Seroprevalence of *Mastomys natalensis* for *Lassa mammarenavirus* in a Lassa fever endemic region of Sierra Leone."
+author:
+  - name: "David Simons"
+    url: https://github.com/diddrog11/rodent_trapping
+    affiliation: The Royal Veterinary College, London, UK
+    affiliation_url: https://www.rvc.ac.uk
+    orcid_id: 0000-0001-9655-1656
+date: "`r Sys.Date()`"
+output:
+  # distill::distill_article:
+  #   self_contained: false
+  #   toc: true
+  # html_document
+  word_document
+bibliography: citations.bib
+categories:
+  - Lassa
+---
+```{r setup, include=FALSE, quietly=TRUE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	message = FALSE,
+	warning = FALSE
+)
+library(here)
+```
+
+# Abstract
+
+*Lassa mammarenavirus*, the causative agent of Lassa fever is endemic to Eastern Sierra Leone. The principal reservoir species (*Mastomys natalensis*), is considered abundant in human dominated habitats. Human cases of Lassa fever are sporadically reported from the region with significant under-reporting. To understand the potential spillover risk into human populations from the rodent reservoir we have conducted systematic sampling of rodent species in the region surrounding the Lassa fever ward based at Kenema Government Hospital, Sierra Leone.
+
+We used a recently developed *Lassa mammarenavirus* specific IgG ELISA to investigate seroprevalence in trapped rodents. We produce geographic and temporal profiles of rodent immunity to this virus as a proxy for acute infection. 
+
+# Introduction
+
+# Methods
+
+## Study area
+
+We conducted rodent trapping at 7 trapping sites within 4 villages in the Lassa fever endemic zone of the Eastern Province of Sierra Leone. We surveyed the rodent community in forested, fallow, agricultural and areas of human occupation. Villages were enrolled based on accessibility to the sites during all seasons, discussions with the Lassa fever outreach team at Kenema Government Hospital and acceptability of the protocol to the village community. Villages and trapping sites were selected to be representative at the study level for land use in Eastern Sierra Leone. Further details on the rodent trapping study can be found elsewhere [].
+
+## Data collection
+
+### Rodent speciation
+
+### Antibody prevalence
+
+## Statistical analysis
+
+# Results
+
+# Discussion
+
+# Conclusion
+
+# References
