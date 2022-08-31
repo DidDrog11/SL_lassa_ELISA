@@ -8,6 +8,20 @@ sample_inventory <- read_xlsx(here("input", "sample_inventory.xlsx"))
 ELISA_results_raw <- read_csv(here("input", "elisa_results_2022-06-23.csv")) %>%
   select(plate, rodent_uid, blood_sample_id, `450`, `630`)
 
+ELISA_id <- ELISA_results_raw %>%
+  filter(is.na(rodent_uid)) %>%
+  filter(!str_detect(blood_sample_id, "neg|pos|NC|PC")) %>%
+  select(-rodent_uid) %>%
+  left_join(sample_inventory %>%
+              select(rodent_uid, blood_id), by = c("blood_sample_id" = "blood_id"))
+
+ELISA_results_raw <- left_join(ELISA_results_raw, ELISA_id, by = c("plate", "blood_sample_id", "450", "630")) %>%
+  mutate(rodent_uid = coalesce(rodent_uid.x, rodent_uid.y)) %>%
+  select(plate, rodent_uid, blood_sample_id, `450`, `630`)
+
+ELISA_awaited <- sample_inventory %>%
+  filter(!rodent_uid %in% ELISA_results_raw$rodent_uid)
+
 ELISA_results_pre_processed <- ELISA_results_raw %>%
   left_join(sample_inventory %>%
               select(rodent_uid_s = rodent_uid, blood_id),
@@ -43,8 +57,6 @@ ELISA_final %>%
   slice(1) %>%
   janitor::tabyl(interpretation)
   
-write_rds(ELISA_final, here("output", "ELISA_final.rds"))  
-  
 # Exploration
 
 trap_data <- read_rds(here("input", "trap_spatial.rds")) %>%
@@ -70,6 +82,11 @@ enriched_ELISA <- ELISA_final %>%
   left_join(rodent_data, by = "rodent_uid") %>%
   distinct()
 
+ELISA_data <- list(ELISA_results = ELISA_final,
+                   ELISA_enriched = enriched_ELISA)
+
+write_rds(ELISA_data, here("output", "ELISA_output.rds"))  
+
 negative_ELISA <- enriched_ELISA %>%
   filter(interpretation == "Negative") %>%
   distinct() %>%
@@ -87,10 +104,12 @@ total_rodents <- rodent_data %>%
   group_by(initial_species_id) %>%
   summarise(total = n()) %>%
   left_join(positive_ELISA %>%
+              distinct(rodent_uid, .keep_all = TRUE) %>%
               group_by(initial_species_id) %>%
               summarise(n_positive = n())) %>%
   mutate(perc_pos = round(n_positive/total * 100, 1)) %>%
   left_join(negative_ELISA %>%
+              distinct(rodent_uid, .keep_all = TRUE) %>%
               group_by(initial_species_id) %>%
               summarise(n_negative = n())) %>%
   mutate(perc_neg = round(n_negative/total * 100, 1))
