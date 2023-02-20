@@ -3,7 +3,7 @@ library(readxl)
 library(here)
 library(sf)
 
-sample_inventory <- read_xlsx(here("input", "sample_inventory_2022-12-13.xlsx"))
+sample_inventory <- read_xlsx(here("input", "sample_inventory_2023-02-14.xlsx"))
 
 ELISA_results_raw <- read_csv(here("input", "elisa_results_2022-06-23.csv")) %>%
   select(plate, rodent_uid, blood_sample_id, `450`, `630`)
