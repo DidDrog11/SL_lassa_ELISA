@@ -3,9 +3,9 @@ library(readxl)
 library(here)
 library(sf)
 
-sample_inventory <- read_xlsx(here("input", "sample_inventory_2023-02-14.xlsx"))
+sample_inventory <- read_xlsx(here("input", "sample_inventory_2023-03-01.xlsx"))
 
-ELISA_results_raw <- read_csv(here("input", "elisa_results_2022-06-23.csv")) %>%
+ELISA_results_raw <- read_csv(here("input", "elisa_results_2022-09-07.csv")) %>%
   select(plate, rodent_uid, blood_sample_id, `450`, `630`)
 
 ELISA_id <- ELISA_results_raw %>%
@@ -119,8 +119,7 @@ ggplot(positive_ELISA %>%
                 initial_species_id = str_to_sentence(str_replace_all(initial_species_id, "_", " "))) %>%
          group_by(village, visit) %>%
          summarise(n_positive = n())) +
-  geom_col(aes(x = visit, y = n_positive, fill = village), position = position_dodge()) +
-  scale_y_continuous(limits = c(0, 7)) +
+  geom_col(aes(x = visit, y = n_positive, fill = village), position = position_stack()) +
   labs(x = "Visit",
        y = "N positive samples",
        colour = "Village") +
