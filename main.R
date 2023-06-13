@@ -3,20 +3,20 @@ library(readxl)
 library(here)
 library(sf)
 
-sample_inventory <- read_xlsx(here("input", "sample_inventory_2023-03-01.xlsx"))
+sample_inventory <- read_xlsx(here("input", "sample_inventory_2023-05-15.xlsx"))
 
-ELISA_results_raw <- read_csv(here("input", "elisa_results_2022-09-07.csv")) %>%
+ELISA <- read_csv(here("input", "elisa_results_2022-09-07.csv")) %>%
   select(plate, rodent_uid, blood_sample_id, `450`, `630`)
 
-ELISA_id <- ELISA_results_raw %>%
-  filter(is.na(rodent_uid)) %>%
+ELISA_id <- ELISA %>%
   filter(!str_detect(blood_sample_id, "neg|pos|NC|PC")) %>%
   select(-rodent_uid) %>%
   left_join(sample_inventory %>%
-              select(rodent_uid, blood_id), by = c("blood_sample_id" = "blood_id"))
+              select(rodent_uid, blood_id), by = c("blood_sample_id" = "blood_id")) %>%
+  select(rodent_uid, blood_sample_id)
 
-ELISA_results_raw <- left_join(ELISA_results_raw, ELISA_id, by = c("plate", "blood_sample_id", "450", "630")) %>%
-  mutate(rodent_uid = coalesce(rodent_uid.x, rodent_uid.y)) %>%
+ELISA_results_raw <- left_join(ELISA %>%
+                                 select(-rodent_uid), ELISA_id, by = c("blood_sample_id")) %>%
   select(plate, rodent_uid, blood_sample_id, `450`, `630`)
 
 ELISA_awaited <- sample_inventory %>%
@@ -30,7 +30,8 @@ ELISA_results_pre_processed <- ELISA_results_raw %>%
          rodent_uid = case_when(str_detect(blood_sample_id, "neg|negative|NC|pos|positive|PC") ~ as.character(NA),
                                 TRUE ~ rodent_uid)) %>%
   select(-rodent_uid_s) %>%
-  mutate(`450-630` = `450` - `630`)
+  mutate(`450-630` = `450` - `630`) %>%
+  distinct()
 
 cut_offs <- ELISA_results_pre_processed %>%
   filter(str_detect(blood_sample_id, "neg|negative|NC")) %>%
@@ -59,27 +60,27 @@ ELISA_final %>%
   
 # Exploration
 
-trap_data <- read_rds(here("input", "trap_spatial.rds")) %>%
-  filter(!is.na(rodent_uid)) %>%
-  select(date_set, village, visit, grid_number, trap_number, habitat_group, site_habitat, rodent_uid, geometry)
+combined_data <- readRDS(gzcon(url("https://github.com/DidDrog11/rodent_trapping/raw/main/data/data_for_export/combined_data.rds")))
 
-rodent_data <- read_csv(here("input", "rodent_data.csv")) %>%
-  select(rodent_uid, initial_species_id, group, weight, head_body, tail, hind_foot, ear, length_skull, sex, age_group, trap_uid) %>%
-  mutate(initial_species_id = case_when(str_detect(initial_species_id, "(?i)mastomys") ~ "mastomys_spp",
-                                        str_detect(initial_species_id, "(?i)minutoides|mus_") ~ "mus_spp",
-                                        str_detect(initial_species_id, "(?i)sikapusi|lophuromys") ~ "lophuromys_spp",
-                                        str_detect(initial_species_id, "(?i)striatus") ~ "lemniscomys_spp",
-                                        str_detect(initial_species_id, "(?i)malacomys") ~ "malacomys_spp",
-                                        str_detect(initial_species_id, "(?i)praomys|proamys") ~ "praomys_spp",
-                                        str_detect(initial_species_id, "(?i)rattus") ~ "rattus_spp",
-                                        str_detect(initial_species_id, "(?i)shrew") ~ "crocidura_spp",
-                                        str_detect(initial_species_id, "(?i)Tatera") ~ "gerbillinae_spp",
-                                        TRUE ~ initial_species_id))
+trap_data <- tibble(combined_data$trap_data) %>%
+  select(-geometry)
+
+rodent_data <- combined_data$rodent_data %>%
+  select(rodent_uid, species, clean_names, genus, age_group, weight, head_body, hind_foot, ear, length_skull, sex, village, visit, trap_uid)
 
 enriched_ELISA <- ELISA_final %>%
   filter(!str_detect(blood_sample_id, "neg|pos|NC|PC")) %>%
-  left_join(trap_data, by = "rodent_uid") %>%
-  left_join(rodent_data, by = "rodent_uid") %>%
+  filter(!str_detect(rodent_uid, "BAM")) %>%
+  group_by(rodent_uid) %>%
+  arrange(interpretation) %>%
+  slice(1) %>%
+  ungroup() %>%
+  full_join(rodent_data, by = "rodent_uid") %>%
+  full_join(sample_inventory %>%
+              select(visit, rodent_uid) %>%
+              filter(!str_detect(rodent_uid, "BAM"))) %>%
+  arrange(visit, rodent_uid)
+  left_join(trap_data, by = c("rodent_uid", "trap_uid")) %>%
   distinct()
 
 ELISA_data <- list(ELISA_results = ELISA_final,
@@ -101,22 +102,22 @@ mixed_ELISA <- enriched_ELISA %>%
   filter(!rodent_uid %in% c(positive_ELISA$rodent_uid, negative_ELISA$rodent_uid))
 
 total_rodents <- rodent_data %>%
-  group_by(initial_species_id) %>%
+  group_by(clean_names) %>%
   summarise(total = n()) %>%
   left_join(positive_ELISA %>%
               distinct(rodent_uid, .keep_all = TRUE) %>%
-              group_by(initial_species_id) %>%
+              group_by(clean_names) %>%
               summarise(n_positive = n())) %>%
   mutate(perc_pos = round(n_positive/total * 100, 1)) %>%
   left_join(negative_ELISA %>%
               distinct(rodent_uid, .keep_all = TRUE) %>%
-              group_by(initial_species_id) %>%
+              group_by(clean_names) %>%
               summarise(n_negative = n())) %>%
   mutate(perc_neg = round(n_negative/total * 100, 1))
 
 ggplot(positive_ELISA %>%
          mutate(village = str_to_sentence(village),
-                initial_species_id = str_to_sentence(str_replace_all(initial_species_id, "_", " "))) %>%
+                clean_names = str_to_sentence(str_replace_all(clean_names, "_", " "))) %>%
          group_by(village, visit) %>%
          summarise(n_positive = n())) +
   geom_col(aes(x = visit, y = n_positive, fill = village), position = position_stack()) +
