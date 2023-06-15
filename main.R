@@ -57,6 +57,15 @@ ELISA_final %>%
   arrange(interpretation) %>%
   slice(1) %>%
   janitor::tabyl(interpretation)
+
+# List of samples to repeat
+repeats_2023_06_15 <- c("3_BAI_002", "3_SEI_008", "3_SEI_019", "3_SEI_020", "3_SEI_021", "3_SEI_022", "4_LAL_014", "5_LAL_012", "6_LAL_006")
+
+ELISA_awaited_2023_06_15 <- bind_rows(ELISA_awaited, sample_inventory %>%
+  filter(rodent_uid %in% repeats_2023_06_15)) %>%
+  select(sample_uid, blood_id, filter_id)
+
+write_csv(ELISA_awaited_2023_06_15, here("output", "ELISA_awaited_2023_06_15.csv"))
   
 # Exploration
 
