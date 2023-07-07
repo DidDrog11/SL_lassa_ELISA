@@ -5,7 +5,7 @@ library(sf)
 
 sample_inventory <- read_xlsx(here("input", "sample_inventory_2023-05-15.xlsx"))
 
-ELISA <- read_csv(here("input", "elisa_results_2022-09-07.csv")) %>%
+ELISA <- read_csv(here("input", "elisa_results_2023-07-07.csv")) %>%
   select(plate, rodent_uid, blood_sample_id, `450`, `630`)
 
 ELISA_id <- ELISA %>%
@@ -13,8 +13,11 @@ ELISA_id <- ELISA %>%
   select(-rodent_uid) %>%
   left_join(sample_inventory %>%
               select(rodent_uid, blood_id), by = c("blood_sample_id" = "blood_id")) %>%
+  left_join(sample_inventory %>%
+              select(rodent_uid, filter_id), by = c("blood_sample_id" = "filter_id")) %>%
+  mutate(rodent_uid = coalesce(rodent_uid.x, rodent_uid.y)) %>%
   select(rodent_uid, blood_sample_id)
-
+  
 ELISA_results_raw <- left_join(ELISA %>%
                                  select(-rodent_uid), ELISA_id, by = c("blood_sample_id")) %>%
   select(plate, rodent_uid, blood_sample_id, `450`, `630`)
@@ -49,7 +52,9 @@ positive_control_qc <- ELISA_results_processed %>%
 ELISA_final <- ELISA_results_processed %>%
   mutate(interpretation = factor(case_when(result >= 1.1 ~ "Positive",
                                     result < 1.1 & result > 0.9 ~ "Equivocal",
-                                    result <= 0.9 ~ "Negative"), levels = c("Positive", "Negative", "Equivocal")))
+                                    result <= 0.9 ~ "Negative"), levels = c("Positive", "Negative", "Equivocal"))) %>%
+  left_join(positive_control_qc %>%
+              select(plate, valid), by = "plate")
   
 ELISA_final %>%
   filter(!is.na(rodent_uid)) %>%
@@ -61,11 +66,22 @@ ELISA_final %>%
 # List of samples to repeat
 repeats_2023_06_15 <- c("3_BAI_002", "3_SEI_008", "3_SEI_019", "3_SEI_020", "3_SEI_021", "3_SEI_022", "4_LAL_014", "5_LAL_012", "6_LAL_006")
 
-ELISA_awaited_2023_06_15 <- bind_rows(ELISA_awaited, sample_inventory %>%
-  filter(rodent_uid %in% repeats_2023_06_15)) %>%
+repeats_2023_07_07 <- c("65", "90", "120", "191", "339", "355", "397", "412", "442", "451", "461", "465", "474", "476", "478")
+
+ELISA_awaited_2023_07_07 <- bind_rows(ELISA_awaited,
+                                      sample_inventory %>%
+                                        filter(blood_id %in% repeats_2023_07_07),
+                                      ELISA_final %>%
+                                        filter(plate %in% 10:12) %>%
+                                        left_join(sample_inventory %>%
+                                                    select(sample_uid, filter_id), by = c("rodent_uid" = "sample_uid"))) %>%
+  select(sample_uid, rodent_uid, blood_id, blood_sample_id, filter_id) %>%
+  mutate(sample_uid = coalesce(sample_uid, rodent_uid),
+         blood_id = coalesce(blood_id, blood_sample_id)) %>%
+  filter(!blood_id %in% c("pos", "neg")) %>%
   select(sample_uid, blood_id, filter_id)
 
-write_csv(ELISA_awaited_2023_06_15, here("output", "ELISA_awaited_2023_06_15.csv"))
+write_csv(ELISA_awaited_2023_07_07, here("output", "ELISA_awaited_2023_07_07.csv"))
   
 # Exploration
 
