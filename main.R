@@ -58,7 +58,8 @@ ELISA_final <- ELISA_results_processed %>%
                                            result < 1.1 & result > 0.9 ~ "Equivocal",
                                            result <= 0.9 ~ "Negative"), levels = c("Positive", "Negative", "Equivocal"))) %>%
   left_join(positive_control_qc %>%
-              select(plate, valid), by = "plate")
+              select(plate, valid), by = "plate") %>%
+  filter(valid == TRUE)
   
 ELISA_final %>%
   filter(!is.na(rodent_uid)) %>%
