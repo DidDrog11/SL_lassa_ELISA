@@ -5,7 +5,7 @@ library(sf)
 
 sample_inventory <- read_xlsx(here("input", "sample_inventory_2023-05-15.xlsx"))
 
-ELISA <- read_csv(here("input", "elisa_results_2023-07-07.csv")) %>%
+ELISA <- read_csv(here("input", "elisa_results_2023-07-17.csv")) %>%
   select(plate, rodent_uid, blood_sample_id, `450`, `630`)
 
 ELISA_id <- ELISA %>%
@@ -49,10 +49,14 @@ positive_control_qc <- ELISA_results_processed %>%
   filter(str_detect(blood_sample_id, "pos|positive|PC")) %>%
   mutate(valid = if_else(`450-630` >= 0.6, TRUE, FALSE))
 
+# Generally a positive supersedes other results. For the following the positive result was incorrect so we manually change them
+blood_id <- c(339, 355)
+
 ELISA_final <- ELISA_results_processed %>%
-  mutate(interpretation = factor(case_when(result >= 1.1 ~ "Positive",
-                                    result < 1.1 & result > 0.9 ~ "Equivocal",
-                                    result <= 0.9 ~ "Negative"), levels = c("Positive", "Negative", "Equivocal"))) %>%
+  mutate(interpretation = factor(case_when(blood_sample_id %in% blood_id ~ "Negative",
+                                           result >= 1.1 ~ "Positive",
+                                           result < 1.1 & result > 0.9 ~ "Equivocal",
+                                           result <= 0.9 ~ "Negative"), levels = c("Positive", "Negative", "Equivocal"))) %>%
   left_join(positive_control_qc %>%
               select(plate, valid), by = "plate")
   
@@ -82,6 +86,7 @@ ELISA_awaited_2023_07_07 <- bind_rows(ELISA_awaited,
   select(sample_uid, blood_id, filter_id)
 
 write_csv(ELISA_awaited_2023_07_07, here("output", "ELISA_awaited_2023_07_07.csv"))
+
   
 # Exploration
 
@@ -95,6 +100,7 @@ rodent_data <- combined_data$rodent_data %>%
 
 enriched_ELISA <- ELISA_final %>%
   filter(!str_detect(blood_sample_id, "neg|pos|NC|PC")) %>%
+  filter(valid == TRUE) %>%
   filter(!str_detect(rodent_uid, "BAM")) %>%
   group_by(rodent_uid) %>%
   arrange(interpretation) %>%
@@ -104,9 +110,8 @@ enriched_ELISA <- ELISA_final %>%
   full_join(sample_inventory %>%
               select(visit, rodent_uid) %>%
               filter(!str_detect(rodent_uid, "BAM"))) %>%
-  arrange(visit, rodent_uid)
-  left_join(trap_data, by = c("rodent_uid", "trap_uid")) %>%
-  distinct()
+  arrange(visit, rodent_uid) %>%
+  distinct(rodent_uid, blood_sample_id, interpretation, .keep_all = TRUE)
 
 ELISA_data <- list(ELISA_results = ELISA_final,
                    ELISA_enriched = enriched_ELISA)
